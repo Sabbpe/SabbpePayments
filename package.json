@@ -1,0 +1,23 @@
+{
+  "name": "ndps-payment-integration",
+  "version": "1.0.0",
+  "description": "Complete NDPS Payment Gateway Integration with all APIs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "ndps",
+    "payment",
+    "gateway",
+    "atom",
+    "integration"
+  ],
+  "author": "One78 Sabbpe Technology Solutions",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0"
+  }
+}

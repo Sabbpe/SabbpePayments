@@ -1,0 +1,12 @@
+# Ignore development and local IDE files
+.gcloudignore
+.git
+.gitignore
+.env
+.vs/
+.vscode/
+
+# Ignore compiled/build outputs
+bin/
+obj/
+node_modules/

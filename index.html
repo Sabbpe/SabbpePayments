@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NDPS Payment Gateway - Test Integration</title>
+    <script src="https://pgtest.atomtech.in/staticdata/ots/js/atomcheckout.js"></script>
+    <style>
+        /* --- (CSS Styles remain unchanged) --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px 12px 0 0;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+            .header h1 {
+                color: #333;
+                font-size: 24px;
+                margin-bottom: 10px;
+            }
+
+            .header p {
+                color: #666;
+                font-size: 14px;
+            }
+
+        .merchant-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            text-align: left;
+        }
+
+            .merchant-info div {
+                display: flex;
+                justify-content: space-between;
+                margin: 5px 0;
+                font-size: 13px;
+            }
+
+            .merchant-info strong {
+                color: #555;
+            }
+
+            .merchant-info span {
+                color: #007bff;
+                font-weight: 600;
+            }
+
+        .payment-form {
+            background: white;
+            padding: 30px;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+            input:focus, select:focus {
+                outline: none;
+                border-color: #667eea;
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            }
+
+        .payment-methods {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .payment-method {
+            position: relative;
+        }
+
+            .payment-method input[type="radio"] {
+                position: absolute;
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+
+            .payment-method label {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 15px 10px;
+                border: 2px solid #e1e8ed;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                background: white;
+                margin: 0;
+            }
+
+            .payment-method input[type="radio"]:checked + label {
+                border-color: #667eea;
+                background: #f0f4ff;
+            }
+
+            .payment-method label span {
+                font-size: 24px;
+                margin-bottom: 5px;
+            }
+
+            .payment-method label small {
+                font-size: 11px;
+                color: #666;
+                font-weight: 400;
+            }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+            .submit-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            }
+
+            .submit-btn:active {
+                transform: translateY(0);
+            }
+
+            .submit-btn:disabled {
+                background: #ccc;
+                cursor: not-allowed;
+                transform: none;
+                box-shadow: none;
+            }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+
+            .loading.active {
+                display: block;
+            }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c33;
+            display: none;
+        }
+
+            .error.active {
+                display: block;
+            }
+
+        .admin-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+            .admin-link a {
+                color: white;
+                text-decoration: none;
+                font-size: 14px;
+                padding: 10px 20px;
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 20px;
+                display: inline-block;
+                transition: all 0.3s ease;
+            }
+
+                .admin-link a:hover {
+                    background: rgba(255, 255, 255, 0.3);
+                }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 12px 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💳 NDPS Payment Gateway</h1>
+            <p>Secure UAT Test Environment</p>
+
+            <div class="merchant-info">
+                <div>
+                    <strong>Merchant ID:</strong>
+                    <span>446442</span>
+                </div>
+                <div>
+                    <strong>Environment:</strong>
+                    <span>UAT</span>
+                </div>
+                <div>
+                    <strong>Product:</strong>
+                    <span>NSE</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="payment-form">
+            <div class="error" id="errorMessage"></div>
+
+            <div class="info-box">
+                ℹ️ This is a UAT test environment. Use test credentials for payment.
+            </div>
+
+            <form id="paymentForm">
+                <div class="form-group">
+                    <label for="amount">Amount (₹)</label>
+                    <input type="number"
+                           id="amount"
+                           name="amount"
+                           placeholder="Enter amount (e.g., 100)"
+                           required
+                           min="1"
+                           step="0.01">
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email"
+                           id="email"
+                           name="email"
+                           placeholder="your.email@example.com"
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label for="mobile">Mobile Number</label>
+                    <input type="tel"
+                           id="mobile"
+                           name="mobile"
+                           placeholder="10-digit mobile number"
+                           required
+                           pattern="[0-9]{10}"
+                           maxlength="10">
+                </div>
+
+                <div class="form-group">
+                    <label>Select Payment Method (Optional)</label>
+                    <div class="payment-methods">
+                        <div class="payment-method">
+                            <input type="radio" id="all" name="paymentMethod" value="ALL" checked>
+                            <label for="all">
+                                <span>🎯</span>
+                                <small>All Methods</small>
+                            </label>
+                        </div>
+                        <div class="payment-method">
+                            <input type="radio" id="nb" name="paymentMethod" value="NB">
+                            <label for="nb">
+                                <span>🏦</span>
+                                <small>Net Banking</small>
+                            </label>
+                        </div>
+                        <div class="payment-method">
+                            <input type="radio" id="cc" name="paymentMethod" value="CC">
+                            <label for="cc">
+                                <span>💳</span>
+                                <small>Credit Card</small>
+                            </label>
+                        </div>
+                        <div class="payment-method">
+                            <input type="radio" id="dc" name="paymentMethod" value="DC">
+                            <label for="dc">
+                                <span>💳</span>
+                                <small>Debit Card</small>
+                            </label>
+                        </div>
+                        <div class="payment-method">
+                            <input type="radio" id="upi" name="paymentMethod" value="UP">
+                            <label for="upi">
+                                <span>📱</span>
+                                <small>UPI</small>
+                            </label>
+                        </div>
+                        <div class="payment-method">
+                            <input type="radio" id="wallet" name="paymentMethod" value="MW">
+                            <label for="wallet">
+                                <span>👛</span>
+                                <small>Wallet</small>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="payBtn">
+                    🔒 Proceed to Pay
+                </button>
+            </form>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Initializing payment...</p>
+            </div>
+        </div>
+
+        <div class="admin-link">
+            <a href="/admin">🔧 Admin Dashboard - Check Transaction Status</a>
+        </div>
+    </div>
+
+    <script>
+        const paymentForm = document.getElementById('paymentForm');
+        const loading = document.getElementById('loading');
+        const errorMessage = document.getElementById('errorMessage');
+        const payBtn = document.getElementById('payBtn');
+
+        paymentForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            // Hide previous errors
+            errorMessage.classList.remove('active');
+
+            // Show loading
+            paymentForm.style.display = 'none';
+            loading.classList.add('active');
+            payBtn.disabled = true;
+
+            const formData = {
+                amount: parseFloat(document.getElementById('amount').value).toFixed(2),
+                email: document.getElementById('email').value,
+                mobile: document.getElementById('mobile').value,
+                product: 'NSE',
+                paymentMethod: document.querySelector('input[name="paymentMethod"]:checked').value
+            };
+
+            console.log('💳 Initiating payment:', formData);
+
+            try {
+                const response = await fetch('/api/payment/initiate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                console.log('📥 Server response:', result);
+
+                if (result.success && result.atomTokenId) {
+                    console.log('✅ Token received:', result.atomTokenId);
+
+                    // 💡 FIX 1 & 2: Store details for Success Page display
+                    sessionStorage.setItem('lastTxnId', result.txnId);
+                    sessionStorage.setItem('lastAmount', result.amount);
+
+                    console.log('🚀 Opening NDPS payment page...');
+
+                    // 💡 FIX 3: Read the dynamic publicReturnUrl from the server response
+                    const options = {
+                        "atomTokenId": result.atomTokenId,
+                        "merchId": "446442",
+                        "custEmail": formData.email,
+                        "custMobile": formData.mobile,
+                        "returnUrl": result.publicReturnUrl // <-- THIS IS THE CRITICAL FIX
+                    };
+
+                    console.log('Payment options:', options);
+
+                    let atom = new AtomPaynetz(options, 'uat');
+
+                } else {
+                    throw new Error(result.error || 'Payment initiation failed');
+                }
+
+            } catch (error) {
+                console.error('❌ Error:', error);
+
+                // Hide loading
+                loading.classList.remove('active');
+                paymentForm.style.display = 'block';
+                payBtn.disabled = false;
+
+                // Show error
+                errorMessage.textContent = error.message || 'Payment initiation failed. Please try again.';
+                errorMessage.classList.add('active');
+            }
+        });
+    </script>
+</body>
+</html>

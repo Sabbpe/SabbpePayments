@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NDPS Admin Dashboard - Transaction & Refund Status</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .back-link {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .back-link a {
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+        
+        .back-link a:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            margin-bottom: 20px;
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .card-icon {
+            font-size: 36px;
+            margin-right: 15px;
+        }
+        
+        .card-title h2 {
+            color: #333;
+            font-size: 22px;
+            margin-bottom: 5px;
+        }
+        
+        .card-title p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .label-hint {
+            color: #999;
+            font-weight: 400;
+            font-size: 12px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+            color: #667eea;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .result {
+            display: none;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .result.active {
+            display: block;
+        }
+        
+        .result.success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+        }
+        
+        .result.failure {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+        }
+        
+        .result.pending {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+        }
+        
+        .result-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .result-icon {
+            font-size: 32px;
+            margin-right: 10px;
+        }
+        
+        .result.success .result-header {
+            color: #155724;
+        }
+        
+        .result.failure .result-header {
+            color: #721c24;
+        }
+        
+        .result.pending .result-header {
+            color: #856404;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .detail-value {
+            color: #333;
+            text-align: right;
+            word-break: break-word;
+            max-width: 60%;
+        }
+        
+        .refund-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .refund-item.initiated {
+            border-left-color: #ffc107;
+        }
+        
+        .refund-item.processed {
+            border-left-color: #28a745;
+        }
+        
+        .refund-item.failed {
+            border-left-color: #dc3545;
+        }
+        
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 12px 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 NDPS Admin Dashboard</h1>
+            <p>Transaction Status & Refund Management</p>
+        </div>
+
+        <div class="back-link">
+            <a href="/">← Back to Payment Page</a>
+        </div>
+
+        <!-- Transaction Status Requery Card -->
+        <!-- Transaction Status Requery Card -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon">🔍</div>
+                <div class="card-title">
+                    <h2>Transaction Status Enquiry</h2>
+                    <p>Check the status of any transaction using your transaction ID</p>
+                </div>
+            </div>
+
+            <div class="info-box">
+                ℹ️ Use this tool to verify the status of any payment transaction. You need the transaction ID, date, amount, and Atom transaction ID.
+            </div>
+
+            <form id="statusForm">
+                <div class="form-group">
+                    <label for="merchTxnId">
+                        Transaction ID
+                        <span class="label-hint">(Your merchant transaction ID)</span>
+                    </label>
+                    <input type="text"
+                           id="merchTxnId"
+                           name="merchTxnId"
+                           placeholder="TXN_1234567890_abc123"
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label for="merchTxnDate">
+                        Transaction Date
+                        <span class="label-hint">(Format: YYYY-MM-DD)</span>
+                    </label>
+                    <input type="date"
+                           id="merchTxnDate"
+                           name="merchTxnDate"
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label for="amount">
+                        Amount (₹)
+                        <span class="label-hint">(Original transaction amount)</span>
+                    </label>
+                    <input type="number"
+                           id="amount"
+                           name="amount"
+                           placeholder="100"
+                           required
+                           min="1"
+                           step="0.01">
+                </div>
+
+                <!-- 🔥 ADD THIS FIELD -->
+                <div class="form-group">
+                    <label for="atomTxnId">
+                        Atom Transaction ID
+                        <span class="label-hint">(Optional - leave blank if unknown)</span>
+                    </label>
+                    <input type="text"
+                           id="atomTxnId"
+                           name="atomTxnId"
+                           placeholder="11000000631738 (optional)">
+                </div>
+
+                <button type="submit" class="btn" id="statusBtn">
+                    🔍 Check Transaction Status
+                </button>
+            </form>
+
+            <div class="loading" id="statusLoading">
+                <div class="spinner"></div>
+                <p>Checking transaction status...</p>
+            </div>
+
+            <div class="result" id="statusResult"></div>
+        </div>
+
+        <!-- Refund Status Query Card -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon">💰</div>
+                <div class="card-title">
+                    <h2>Refund Status Query</h2>
+                    <p>Track the status of refund requests</p>
+                </div>
+            </div>
+
+            <div class="info-box">
+                ℹ️ <strong>Merchant Use Only:</strong> Use this tool to check the status of refunds you have initiated for customer transactions.
+            </div>
+
+            <form id="refundStatusForm">
+                <div class="form-group">
+                    <label for="refundAtomTxnId">
+                        Atom Transaction ID
+                        <span class="label-hint">(Required - from original payment)</span>
+                    </label>
+                    <input type="text"
+                           id="refundAtomTxnId"
+                           name="atomTxnId"
+                           placeholder="11000000631738"
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label for="refundProdName">
+                        Product Name
+                        <span class="label-hint">(Required - settlement account)</span>
+                    </label>
+                    <input type="text"
+                           id="refundProdName"
+                           name="prodName"
+                           placeholder="NSE"
+                           value="NSE"
+                           required>
+                </div>
+
+                <button type="submit" class="btn" id="refundStatusBtn">
+                    💰 Check Refund Status
+                </button>
+            </form>
+
+            <div class="loading" id="refundLoading">
+                <div class="spinner"></div>
+                <p>Checking refund status...</p>
+            </div>
+
+            <div class="result" id="refundResult"></div>
+        </div>
+    </div>
+    
+    <script>
+        // ============================================================
+        // TRANSACTION STATUS ENQUIRY
+        // ============================================================
+        
+        const statusForm = document.getElementById('statusForm');
+        const statusLoading = document.getElementById('statusLoading');
+        const statusResult = document.getElementById('statusResult');
+        const statusBtn = document.getElementById('statusBtn');
+        
+        statusForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            // Hide previous results
+            statusResult.classList.remove('active');
+
+            // Show loading
+            statusForm.style.display = 'none';
+            statusLoading.classList.add('active');
+            statusBtn.disabled = true;
+            let amountValue = document.getElementById('amount').value;
+
+            
+            amountValue = parseFloat(amountValue).toFixed(2);
+            const formData = {
+                merchTxnId: document.getElementById('merchTxnId').value,
+                merchTxnDate: document.getElementById('merchTxnDate').value,
+                amount: document.getElementById('amount').value
+                // atomTxnId is now optional - don't include if empty
+            };
+
+            const atomTxnIdValue = document.getElementById('atomTxnId').value;
+            if (atomTxnIdValue) {
+                formData.atomTxnId = atomTxnIdValue;
+            }
+
+            console.log('🔍 Requesting transaction status:', formData);
+
+            try {
+                const response = await fetch('/api/payment/status-requery', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                console.log('📥 Status result:', result);
+
+                // Hide loading
+                statusLoading.classList.remove('active');
+                statusForm.style.display = 'block';
+                statusBtn.disabled = false;
+
+                // Display result
+                displayStatusResult(result);
+
+            } catch (error) {
+                console.error('❌ Error:', error);
+                statusLoading.classList.remove('active');
+                statusForm.style.display = 'block';
+                statusBtn.disabled = false;
+
+                statusResult.className = 'result active failure';
+                statusResult.innerHTML = `
+            <div class="result-header">
+                <span class="result-icon">❌</span>
+                Error
+            </div>
+            <p>Network error. Please try again.</p>
+        `;
+            }
+        });
+        
+        function displayStatusResult(result) {
+            let resultClass = 'result active ';
+            let icon = '';
+            
+            if (result.success) {
+                resultClass += 'success';
+                icon = '✅';
+            } else if (result.statusCode === 'OTS0351') {
+                resultClass += 'pending';
+                icon = '⏳';
+            } else {
+                resultClass += 'failure';
+                icon = '❌';
+            }
+            
+            statusResult.className = resultClass;
+            
+            let html = `
+                <div class="result-header">
+                    <span class="result-icon">${icon}</span>
+                    ${result.message || 'Transaction Status'}
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Status Code:</span>
+                    <span class="detail-value">${result.statusCode}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Description:</span>
+                    <span class="detail-value">${result.description}</span>
+                </div>
+            `;
+            
+            if (result.transaction) {
+                const txn = result.transaction;
+                html += `
+                    <hr style="margin: 15px 0; border: none; border-top: 2px solid rgba(0,0,0,0.1);">
+                    <h4 style="margin-bottom: 10px;">Transaction Details:</h4>
+                    <div class="detail-row">
+                        <span class="detail-label">Merchant TXN ID:</span>
+                        <span class="detail-value">${txn.merchTxnId}</span>
+                    </div>
+                    ${txn.atomTxnId ? `
+                    <div class="detail-row">
+                        <span class="detail-label">Atom TXN ID:</span>
+                        <span class="detail-value">${txn.atomTxnId}</span>
+                    </div>
+                    ` : ''}
+                    <div class="detail-row">
+                        <span class="detail-label">Amount:</span>
+                        <span class="detail-value">₹${txn.amount}</span>
+                    </div>
+                    ${txn.totalAmount ? `
+                    <div class="detail-row">
+                        <span class="detail-label">Total Amount:</span>
+                        <span class="detail-value">₹${txn.totalAmount}</span>
+                    </div>
+                    ` : ''}
+                    ${txn.paymentMethod ? `
+                    <div class="detail-row">
+                        <span class="detail-label">Payment Method:</span>
+                        <span class="detail-value">${txn.paymentMethod}</span>
+                    </div>
+                    ` : ''}
+                    ${txn.bankDetails && txn.bankDetails.otsBankName ? `
+                    <div class="detail-row">
+                        <span class="detail-label">Bank:</span>
+                        <span class="detail-value">${txn.bankDetails.otsBankName}</span>
+                    </div>
+                    ` : ''}
+                    ${txn.bankDetails && txn.bankDetails.bankTxnId ? `
+                    <div class="detail-row">
+                        <span class="detail-label">Bank TXN ID:</span>
+                        <span class="detail-value">${txn.bankDetails.bankTxnId}</span>
+                    </div>
+                    ` : ''}
+                    ${txn.reconStatus ? `
+                    <div class="detail-row">
+                        <span class="detail-label">Settlement Status:</span>
+                        <span class="detail-value">${txn.reconStatus}</span>
+                    </div>
+                    ` : ''}
+                `;
+            }
+            
+            statusResult.innerHTML = html;
+        }
+        
+        // ============================================================
+        // REFUND STATUS QUERY
+        // ============================================================
+        
+        const refundStatusForm = document.getElementById('refundStatusForm');
+        const refundLoading = document.getElementById('refundLoading');
+        const refundResult = document.getElementById('refundResult');
+        const refundStatusBtn = document.getElementById('refundStatusBtn');
+        
+        refundStatusForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Hide previous results
+            refundResult.classList.remove('active');
+            
+            // Show loading
+            refundStatusForm.style.display = 'none';
+            refundLoading.classList.add('active');
+            refundStatusBtn.disabled = true;
+            
+            const formData = {
+                atomTxnId: document.getElementById('refundAtomTxnId').value,
+                prodName: document.getElementById('refundProdName').value
+            };
+            
+            console.log('💰 Requesting refund status:', formData);
+            
+            try {
+                const response = await fetch('/api/payment/refund-status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                console.log('📥 Refund status result:', result);
+                
+                // Hide loading
+                refundLoading.classList.remove('active');
+                refundStatusForm.style.display = 'block';
+                refundStatusBtn.disabled = false;
+                
+                // Display result
+                displayRefundResult(result);
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                refundLoading.classList.remove('active');
+                refundStatusForm.style.display = 'block';
+                refundStatusBtn.disabled = false;
+                
+                refundResult.className = 'result active failure';
+                refundResult.innerHTML = `
+                    <div class="result-header">
+                        <span class="result-icon">❌</span>
+                        Error
+                    </div>
+                    <p>Network error. Please try again.</p>
+                `;
+            }
+        });
+        
+        function displayRefundResult(result) {
+            let resultClass = 'result active ';
+            let icon = '';
+            
+            if (result.success) {
+                resultClass += 'success';
+                icon = '✅';
+            } else {
+                resultClass += 'failure';
+                icon = '❌';
+            }
+            
+            refundResult.className = resultClass;
+            
+            let html = `
+                <div class="result-header">
+                    <span class="result-icon">${icon}</span>
+                    ${result.message || 'Refund Status'}
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Status Code:</span>
+                    <span class="detail-value">${result.statusCode}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Description:</span>
+                    <span class="detail-value">${result.description}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Atom TXN ID:</span>
+                    <span class="detail-value">${result.atomTxnId}</span>
+                </div>
+            `;
+            
+            if (result.refunds && result.refunds.length > 0) {
+                html += `
+                    <hr style="margin: 15px 0; border: none; border-top: 2px solid rgba(0,0,0,0.1);">
+                    <h4 style="margin-bottom: 10px;">Refund Details:</h4>
+                `;
+                
+                result.refunds.forEach(refundGroup => {
+                    html += `<h5 style="margin: 10px 0; color: #555;">Product: ${refundGroup.prodName}</h5>`;
+                    
+                    if (refundGroup.refundStatus && refundGroup.refundStatus.length > 0) {
+                        refundGroup.refundStatus.forEach(refund => {
+                            const statusClass = refund.remarks.toLowerCase().includes('processed') ? 'processed' : 
+                                              refund.remarks.toLowerCase().includes('failed') ? 'failed' : 'initiated';
+                            
+                            html += `
+                                <div class="refund-item ${statusClass}">
+                                    <div class="detail-row">
+                                        <span class="detail-label">Refund ID:</span>
+                                        <span class="detail-value">${refund.prodRefundId}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Refund TXN ID:</span>
+                                        <span class="detail-value">${refund.refundTxnId}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Amount:</span>
+                                        <span class="detail-value">₹${refund.refundAmt}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Date:</span>
+                                        <span class="detail-value">${refund.refundInitiatedDate}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Status:</span>
+                                        <span class="detail-value"><strong>${refund.remarks}</strong></span>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        html += `<p style="color: #666; font-style: italic; margin: 10px 0;">No refunds found for this product.</p>`;
+                    }
+                });
+            } else {
+                html += `
+                    <hr style="margin: 15px 0; border: none; border-top: 2px solid rgba(0,0,0,0.1);">
+                    <p style="color: #666; font-style: italic;">No refunds found for this transaction.</p>
+                `;
+            }
+            
+            refundResult.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
