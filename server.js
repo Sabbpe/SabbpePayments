@@ -872,6 +872,100 @@ app.post('/api/payment/initiate-refund', async (req, res) => {
     }
 });
 // ============================================================================
+// API: REFUND STATUS CHECK - ADD THIS AFTER /api/payment/initiate-refund
+// ============================================================================
+
+app.post('/api/payment/refund-status', async (req, res) => {
+    try {
+        console.log('🔍 REFUND STATUS CHECK REQUEST');
+        console.log('Request body:', req.body);
+
+        const { atomTxnId, prodName } = req.body;
+
+        // Validate required fields
+        if (!atomTxnId || !prodName) {
+            console.log('❌ Validation failed - missing fields');
+            return res.status(400).json({
+                success: false,
+                statusCode: 'MISSING_FIELDS',
+                message: 'Missing Required Fields',
+                description: 'atomTxnId and prodName are required',
+                error: 'atomTxnId and prodName are required'
+            });
+        }
+
+        console.log('🔎 Looking for transaction:', { atomTxnId, prodName });
+
+        // Search for transactions with matching atomTxnId
+        let transactionFound = null;
+
+        for (const [txnId, txnData] of transactionStore) {
+            console.log(`Checking transaction: ${txnId}, atomTxnId: ${txnData.atomTxnId}`);
+            if (txnData.atomTxnId && txnData.atomTxnId.toString() === atomTxnId.toString()) {
+                transactionFound = txnData;
+                console.log('✅ Transaction matched!');
+                break;
+            }
+        }
+
+        if (!transactionFound) {
+            console.log('❌ No transaction found for atomTxnId:', atomTxnId);
+            return res.json({
+                success: false,
+                statusCode: 'NOT_FOUND',
+                message: 'No refunds found for this transaction',
+                description: 'No transaction records found for this Atom Transaction ID',
+                atomTxnId: atomTxnId
+            });
+        }
+
+        console.log('✅ Transaction found:', transactionFound);
+
+        // Build response with transaction details
+        const refundStatus = {
+            success: true,
+            statusCode: 'OTS0000',
+            message: 'SUCCESS',
+            description: 'Transaction Status Retrieved',
+            atomTxnId: atomTxnId
+        };
+
+        if (transactionFound.callbackData) {
+            const payment = transactionFound.callbackData.payInstrument;
+            refundStatus.atomTxnId = payment.payDetails.atomTxnId;
+            refundStatus.merchTxnId = payment.merchDetails.merchTxnId;
+            refundStatus.amount = payment.payDetails.totalAmount;
+            refundStatus.paymentStatus = payment.responseDetails.statusCode === 'OTS0000' ? 'SUCCESS' : 'FAILED';
+            refundStatus.paymentStatusCode = payment.responseDetails.statusCode;
+            refundStatus.paymentMessage = payment.responseDetails.message;
+            refundStatus.paymentDescription = payment.responseDetails.description;
+            refundStatus.paymentMethod = payment.payModeSpecificData?.subChannel?.[0] || 'N/A';
+            refundStatus.bankName = payment.payModeSpecificData?.bankDetails?.otsBankName || 'N/A';
+            refundStatus.transactionDate = transactionFound.createdAt;
+        } else {
+            refundStatus.amount = transactionFound.amount;
+            refundStatus.status = transactionFound.status;
+            refundStatus.transactionDate = transactionFound.createdAt;
+        }
+
+        console.log('✅ Returning refund status:', refundStatus);
+
+        res.json(refundStatus);
+
+    } catch (error) {
+        console.error('❌ Refund status check error:', error.message);
+        console.error('Stack:', error.stack);
+        res.status(500).json({
+            success: false,
+            statusCode: 'ERROR',
+            message: 'Error',
+            description: 'Refund status check failed',
+            error: error.message
+        });
+    }
+});
+
+// ============================================================================
 // API 4: PAYMENT CALLBACK (From NDPS after payment completion)
 // ============================================================================
 
@@ -934,92 +1028,12 @@ app.post('/api/payment/callback', (req, res) => {
         res.status(500).send('Error processing callback');
     }
 });
+// NOTE: COPY THE REFUND-STATUS ENDPOINT BELOW AND ADD IT TO YOUR server.js
+
+
 // ============================================================================
-// API: REFUND STATUS CHECK
+// END OF REFUND STATUS ENDPOINT - ADD EVERYTHING ABOVE TO YOUR server.js
 // ============================================================================
-
-app.post('/api/payment/refund-status', async (req, res) => {
-    try {
-        console.log('🔍 REFUND STATUS CHECK REQUEST');
-        console.log('Request body:', req.body);
-
-        const { atomTxnId, prodName } = req.body;
-
-        // Validate required fields
-        if (!atomTxnId || !prodName) {
-            console.log('❌ Validation failed - missing fields');
-            return res.status(400).json({
-                success: false,
-                error: 'atomTxnId and prodName are required'
-            });
-        }
-
-        console.log('🔎 Looking for refund:', { atomTxnId, prodName });
-
-        // Search for transactions with matching atomTxnId
-        let refundFound = null;
-        let transactionDetails = null;
-
-        for (const [txnId, txnData] of transactionStore) {
-            if (txnData.atomTxnId && txnData.atomTxnId.toString() === atomTxnId.toString()) {
-                transactionDetails = txnData;
-
-                // Check if there's refund data in callbackData
-                if (txnData.callbackData) {
-                    const payment = txnData.callbackData.payInstrument;
-
-                    refundFound = {
-                        atomTxnId: payment.payDetails.atomTxnId,
-                        merchTxnId: payment.merchDetails.merchTxnId,
-                        amount: payment.payDetails.totalAmount,
-                        status: payment.responseDetails.statusCode === 'OTS0000' ? 'SUCCESS' : 'FAILED',
-                        statusCode: payment.responseDetails.statusCode,
-                        message: payment.responseDetails.message,
-                        description: payment.responseDetails.description,
-                        paymentMethod: payment.payModeSpecificData?.subChannel?.[0] || 'N/A',
-                        bankName: payment.payModeSpecificData?.bankDetails?.otsBankName || 'N/A',
-                        transactionDate: txnData.createdAt
-                    };
-                }
-                break;
-            }
-        }
-
-        if (!refundFound || !transactionDetails) {
-            console.log('❌ No refund found for atomTxnId:', atomTxnId);
-            return res.json({
-                success: false,
-                statusCode: 'NOT_FOUND',
-                message: 'No transaction found',
-                description: 'No refund records found for this transaction'
-            });
-        }
-
-        console.log('✅ Refund found:', refundFound);
-
-        res.json({
-            success: true,
-            statusCode: refundFound.statusCode,
-            message: refundFound.message,
-            description: refundFound.description,
-            atomTxnId: refundFound.atomTxnId,
-            merchTxnId: refundFound.merchTxnId,
-            amount: refundFound.amount,
-            paymentMethod: refundFound.paymentMethod,
-            bankName: refundFound.bankName,
-            status: refundFound.status,
-            transactionDate: refundFound.transactionDate
-        });
-
-    } catch (error) {
-        console.error('❌ Refund status check error:', error.message);
-        res.status(500).json({
-            success: false,
-            error: 'Refund status check failed',
-            details: error.message
-        });
-    }
-});
 // ============================================================================
 // CUSTOMER-FACING SUCCESS/FAILURE PAGES (returnUrl)
 // ============================================================================
