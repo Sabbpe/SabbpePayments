@@ -4,7 +4,7 @@ const axios = require('axios');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // ============================================================================
 // NDPS CONFIGURATION (Your Credentials)
@@ -27,7 +27,7 @@ const NDPS_CONFIG = {
     // API endpoints
     authUrl: 'https://paynetzuat.atomtech.in/ots/aipay/auth',
     statusUrl: 'https://paynetzuat.atomtech.in/ots/payment/status',
-    refundStatusUrl: 'https://caller.atomtech.in/ots/payment/status',
+    refundStatusUrl:'https://caller.atomtech.in/ots/payment/refund',
     scriptUrl: 'https://pgtest.atomtech.in/staticdata/ots/js/atomcheckout.js',
     serverUrl: process.env.NDPS_SERVER_URL || 'https://sabbpe-uat-988626072499.asia-south1.run.app'
 
@@ -649,69 +649,139 @@ app.post('/api/payment/status-requery', async (req, res) => {
         });
     }
 });
+ app.get('/api/signature-test', (req, res) => {
+       try {
+           const ndpsExample = {
+               merchId: '317159',
+               password: 'Test@123',
+               merchTxnId: '173821682043',
+               amount: '500.00',
+               currency: 'INR',
+               api: 'REFUNDINIT',
+               hashKey: 'KEY123657234',
+               expectedSignature: '7f65c46c03b26e6c658312937fdc719a6146f8c447a802312322531dc83565e28da2f86942fec3bb4ad14434b73e03dad39b7fb0a1eb490729d20a1add1afcf7'
+           };
 
+           const signatureString = ndpsExample.merchId + ndpsExample.password + ndpsExample.merchTxnId + ndpsExample.amount + ndpsExample.currency + ndpsExample.api;
+
+           const calculatedSignature = crypto
+               .createHmac('sha512', ndpsExample.hashKey)
+               .update(signatureString)
+               .digest('hex');
+
+           res.json({
+               test: 'NDPS Documentation Example',
+               signatureString: signatureString,
+               calculatedSignature: calculatedSignature,
+               expectedSignature: ndpsExample.expectedSignature,
+               match: calculatedSignature === ndpsExample.expectedSignature ? '✅ YES - Algorithm is correct!' : '❌ NO - Algorithm issue'
+           });
+       } catch (error) {
+           res.status(500).json({ error: error.message });
+       }
+   });
 // ============================================================================
-// API 3: REFUND STATUS QUERY (REFUNDSTATUS)
+// API: REFUND INITIATION (REFUNDINIT) - Based on NDPS Refund API Documentation
 // ============================================================================
 
-app.post('/api/payment/refund-status', async (req, res) => {
+app.post('/api/payment/initiate-refund', async (req, res) => {
     try {
-        const { atomTxnId, prodName } = req.body;
+        console.log('🚨🚨🚨 REFUND INITIATION ENDPOINT HIT 🚨🚨🚨');
+        console.log('Request body:', req.body);
+
+        const { atomTxnId, prodName, prodRefundAmount, totalRefundAmount, merchTxnId, merchTxnDate } = req.body;
 
         // Validate required fields
-        if (!atomTxnId || !prodName) {
+        if (!atomTxnId || !prodName || !prodRefundAmount || !totalRefundAmount) {
+            console.log('❌ Validation failed - missing fields');
             return res.status(400).json({
                 success: false,
-                error: 'atomTxnId and prodName are required'
+                error: 'atomTxnId, prodName, prodRefundAmount, and totalRefundAmount are required'
             });
         }
 
-        console.log('💰 Refund status query:', { atomTxnId, prodName });
+        console.log('💰 Refund initiation:', { atomTxnId, prodName, prodRefundAmount, totalRefundAmount });
 
-        // Build REFUND STATUS payload as per NDPS specification
+        // Generate signature for REFUNDINIT
+        // Signature: merchId + password + merchTxnId + totalRefundAmount + txnCurrency + api
+        const refundTxnId = merchTxnId || `REFUND_${Date.now()}`;
+        const totalAmount = Number(totalRefundAmount).toFixed(2);
+        
+        const signatureString = 
+            NDPS_CONFIG.merchId +
+            NDPS_CONFIG.password +
+            refundTxnId +
+            totalAmount +
+            'INR' +
+            'REFUNDINIT';
+
+        console.log('🔐 Signature Generation:');
+        console.log('   String:', signatureString);
+
+        const signature = crypto
+            .createHmac('sha512', NDPS_CONFIG.reqHashKey)
+            .update(signatureString)
+            .digest('hex');
+
+        console.log('   Signature:', signature);
+
+        // Build REFUNDINIT payload
         const payload = {
             payInstrument: {
                 headDetails: {
-                    api: 'REFUNDSTATUS',
-                    source: 'OTS_ARS'
+                    api: 'REFUNDINIT',
+                    source: 'OTS'
                 },
                 merchDetails: {
                     merchId: parseInt(NDPS_CONFIG.merchId),
-                    password: Buffer.from(NDPS_CONFIG.password).toString('base64')
+                    password: NDPS_CONFIG.password,
+                    merchTxnId: refundTxnId
                 },
                 payDetails: {
+                    signature: signature,
                     atomTxnId: parseInt(atomTxnId),
+                    totalRefundAmount: parseFloat(totalAmount),
+                    txnCurrency: 'INR',
                     prodDetails: [
                         {
-                            prodName: prodName
+                            prodName: prodName,
+                            prodRefundAmount: parseFloat(Number(prodRefundAmount).toFixed(2)),
+                            prodRefundId: `REFUND_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
                         }
                     ]
                 }
             }
         };
 
+        console.log('📦 Payload:', JSON.stringify(payload, null, 2));
+
         // Encrypt request
         const encData = ndpsCrypto.encryptRequest(payload);
+        console.log('🔒 Encrypted (first 100 chars):', encData.substring(0, 100));
 
-        // Call NDPS REFUND STATUS API
-        const refundStatusUrl = `${NDPS_CONFIG.refundStatusUrl}?merchId=${NDPS_CONFIG.merchId}&encData=${encodeURIComponent(encData)}`;
+        // Prepare form data
+        const formData = `encData=${encodeURIComponent(encData)}&merchId=${NDPS_CONFIG.merchId}`;
 
-        console.log('📤 Calling NDPS Refund Status API...');
+        console.log('📤 Calling NDPS Refund Initiation API...');
+        console.log('   URL: https://caller.atomtech.in/ots/payment/refund');
 
-        const response = await axios.post(refundStatusUrl, '', {
+        // Call NDPS REFUNDINIT API
+        const response = await axios.post('https://caller.atomtech.in/ots/payment/refund', formData, {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
             timeout: 30000
         });
 
-        // Parse response
+        console.log('📥 Response Status:', response.status);
+
         const responseText = response.data;
 
         if (!responseText || responseText.length === 0) {
+            console.log('❌ Empty response from NDPS');
             return res.json({
                 success: false,
-                message: 'No refund data found',
+                message: 'No response data',
                 code: 'NO_DATA'
             });
         }
@@ -719,6 +789,7 @@ app.post('/api/payment/refund-status', async (req, res) => {
         const encDataMatch = responseText.match(/encData=([^&]+)/);
 
         if (!encDataMatch) {
+            console.log('❌ No encData in response');
             return res.status(500).json({
                 success: false,
                 error: 'Invalid response format from payment gateway'
@@ -730,38 +801,76 @@ app.post('/api/payment/refund-status', async (req, res) => {
             decodeURIComponent(encDataMatch[1])
         );
 
-        console.log('✅ Refund status retrieved');
+        console.log('✅ Response decrypted successfully');
+        console.log('📥 Decrypted Response:', JSON.stringify(decryptedResponse, null, 2));
 
-        const statusCode = decryptedResponse.payInstrument.responseDetails.statusCode;
+        // Extract payInstrument
+        let refundData = decryptedResponse.payInstrument;
+
+        if (!refundData) {
+            console.log('❌ No payInstrument in response');
+            return res.json({
+                success: false,
+                message: 'No refund data in response',
+                code: 'NO_DATA'
+            });
+        }
+
+        // Check for responseDetails
+        if (!refundData.responseDetails) {
+            console.log('❌ No responseDetails in refund data');
+            return res.json({
+                success: false,
+                message: 'Malformed response from payment gateway',
+                code: 'MALFORMED'
+            });
+        }
+
+        const statusCode = refundData.responseDetails.statusCode;
+        const message = refundData.responseDetails.message;
+        const description = refundData.responseDetails.description;
+
+        console.log('✅ Status Code:', statusCode);
+        console.log('✅ Message:', message);
+        console.log('✅ Description:', description);
+
+        // Safely extract payDetails
+        const payDetails = refundData.payDetails || {};
+        console.log('📋 PayDetails:', JSON.stringify(payDetails, null, 2));
 
         // Return formatted response
         res.json({
-            success: statusCode === 'OTS0000',
+            success: statusCode === 'OTS0000' || statusCode === 'OTS0001',
             statusCode: statusCode,
-            message: decryptedResponse.payInstrument.responseDetails.message,
-            description: decryptedResponse.payInstrument.responseDetails.description,
-            atomTxnId: decryptedResponse.payInstrument.payDetails.atomTxnId,
-            refunds: decryptedResponse.payInstrument.refundStatusDetails?.refundDetails || []
+            message: message,
+            description: description,
+            atomTxnId: payDetails.atomTxnId || null,
+            totalRefundAmount: payDetails.totalRefundAmount || null,
+            txnCurrency: payDetails.txnCurrency || 'INR',
+            prodDetails: payDetails.prodDetails || [],
+            refundTxnId: refundTxnId
         });
 
     } catch (error) {
-        console.error('❌ Refund status query error:', error.message);
+        console.error('❌ Refund initiation error:', error.message);
+        console.error('Stack:', error.stack);
 
         if (error.code === 'ECONNABORTED') {
             res.status(504).json({
                 success: false,
-                error: 'Request timeout. Please try again.'
+                error: 'Request timeout. Please try again.',
+                statusCode: 'TIMEOUT'
             });
         } else {
             res.status(500).json({
                 success: false,
-                error: 'Refund status query failed. Please try again.',
-                details: error.message
+                error: 'Refund initiation failed. Please try again.',
+                details: error.message,
+                statusCode: 'ERROR'
             });
         }
     }
 });
-
 // ============================================================================
 // API 4: PAYMENT CALLBACK (From NDPS after payment completion)
 // ============================================================================
@@ -825,7 +934,92 @@ app.post('/api/payment/callback', (req, res) => {
         res.status(500).send('Error processing callback');
     }
 });
+// ============================================================================
+// API: REFUND STATUS CHECK
+// ============================================================================
 
+app.post('/api/payment/refund-status', async (req, res) => {
+    try {
+        console.log('🔍 REFUND STATUS CHECK REQUEST');
+        console.log('Request body:', req.body);
+
+        const { atomTxnId, prodName } = req.body;
+
+        // Validate required fields
+        if (!atomTxnId || !prodName) {
+            console.log('❌ Validation failed - missing fields');
+            return res.status(400).json({
+                success: false,
+                error: 'atomTxnId and prodName are required'
+            });
+        }
+
+        console.log('🔎 Looking for refund:', { atomTxnId, prodName });
+
+        // Search for transactions with matching atomTxnId
+        let refundFound = null;
+        let transactionDetails = null;
+
+        for (const [txnId, txnData] of transactionStore) {
+            if (txnData.atomTxnId && txnData.atomTxnId.toString() === atomTxnId.toString()) {
+                transactionDetails = txnData;
+
+                // Check if there's refund data in callbackData
+                if (txnData.callbackData) {
+                    const payment = txnData.callbackData.payInstrument;
+
+                    refundFound = {
+                        atomTxnId: payment.payDetails.atomTxnId,
+                        merchTxnId: payment.merchDetails.merchTxnId,
+                        amount: payment.payDetails.totalAmount,
+                        status: payment.responseDetails.statusCode === 'OTS0000' ? 'SUCCESS' : 'FAILED',
+                        statusCode: payment.responseDetails.statusCode,
+                        message: payment.responseDetails.message,
+                        description: payment.responseDetails.description,
+                        paymentMethod: payment.payModeSpecificData?.subChannel?.[0] || 'N/A',
+                        bankName: payment.payModeSpecificData?.bankDetails?.otsBankName || 'N/A',
+                        transactionDate: txnData.createdAt
+                    };
+                }
+                break;
+            }
+        }
+
+        if (!refundFound || !transactionDetails) {
+            console.log('❌ No refund found for atomTxnId:', atomTxnId);
+            return res.json({
+                success: false,
+                statusCode: 'NOT_FOUND',
+                message: 'No transaction found',
+                description: 'No refund records found for this transaction'
+            });
+        }
+
+        console.log('✅ Refund found:', refundFound);
+
+        res.json({
+            success: true,
+            statusCode: refundFound.statusCode,
+            message: refundFound.message,
+            description: refundFound.description,
+            atomTxnId: refundFound.atomTxnId,
+            merchTxnId: refundFound.merchTxnId,
+            amount: refundFound.amount,
+            paymentMethod: refundFound.paymentMethod,
+            bankName: refundFound.bankName,
+            status: refundFound.status,
+            transactionDate: refundFound.transactionDate
+        });
+
+    } catch (error) {
+        console.error('❌ Refund status check error:', error.message);
+        res.status(500).json({
+            success: false,
+            error: 'Refund status check failed',
+            details: error.message
+        });
+    }
+});
 // ============================================================================
 // CUSTOMER-FACING SUCCESS/FAILURE PAGES (returnUrl)
 // ============================================================================
